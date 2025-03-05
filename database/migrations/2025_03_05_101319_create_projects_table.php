@@ -13,11 +13,15 @@ return new class extends Migration
     {
         Schema::create('projects', function (Blueprint $table) {
             $table->bigIncrements("id");
-            $table->string("slug")->unique()->index();
+            $table->string("slug");
             $table->string('name');
             $table->string('repository');
             $table->boolean("is_deleted")->default(false);
             $table->timestamps();
+
+            $table->unique("slug");
+            // add unique for slug
+
         });
     }
 
