@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: xflowup_app
+    restart: unless-stopped
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_KEY=base64:HNC5Vs6Y9VGcpf883jswtF4e9cOCJfuJP/HSSNS0Nlk=
+    volumes:
+      - ./app:/var/www
+    networks:
+      - xflowup_network
+
+  nginx:
+    image: nginx:latest
+    container_name: xflowup_nginx
+    restart: unless-stopped
+    ports:
+      - "7979:80"
+    volumes:
+      - ./nginx:/etc/nginx
+      - ./app:/var/www
+    depends_on:
+      - app
+    networks:
+      - xflowup_network
+
+  db:
+    image: postgres:latest
+    container_name: xflowup_db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: xflowup_be
+      POSTGRES_USER: xflowup
+      POSTGRES_PASSWORD: "Anh@@123"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - xflowup_network
+
+volumes:
+  db_data:
+
+networks:
+  xflowup_network:
+    driver: bridge
