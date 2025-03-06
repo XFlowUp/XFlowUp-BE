@@ -19,6 +19,41 @@ class RepositoryService
     ) {}
 
     /**
+     * Get authenticated user or throw unauthorized exception
+     * 
+     * @return Users
+     * @throws \Illuminate\Auth\AuthenticationException
+     */
+    private function getAuthenticatedUser(): Users
+    {
+        $user = Auth::user();
+
+        if (!$user instanceof Users) {
+            throw new \Illuminate\Auth\AuthenticationException('Unauthorized: User not authenticated');
+        }
+
+        return $user;
+    }
+
+    /**
+     * Get user's GitHub token or throw exception
+     * 
+     * @param Users $user
+     * @return object
+     * @throws Exception
+     */
+    private function getUserGithubToken(Users $user)
+    {
+        $githubToken = $user->githubToken()->first();
+
+        if (!$githubToken) {
+            throw new Exception('GitHub token not found for user');
+        }
+
+        return $githubToken;
+    }
+
+    /**
      * Get repositories for the authenticated user with pagination and sorting
      *
      * @param int $page Current page number
@@ -35,70 +70,74 @@ class RepositoryService
         string $direction = 'desc'
     ): array {
         try {
-            // Check if user is logged in
-            $user = Auth::user();
-
-            if (!$user instanceof Users) {
-                throw new Exception('User not authenticated');
-            }
+            // Get authenticated user
+            $user = $this->getAuthenticatedUser();
 
             $perPage = $perPage ?: $this->perPage;
             $cacheKey = "user_{$user->id}_repositories_page_{$page}_perpage_{$perPage}_sort_{$sort}_dir_{$direction}";
 
-            return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($user, $page, $perPage, $sort, $direction) {
+            // Use cache duration from config
+            return Cache::remember(
+                $cacheKey,
+                now()->addMinutes(config('cache-settings.repositories_list_duration', 30)),
+                function () use ($user, $page, $perPage, $sort, $direction) {
+                    $githubToken = $this->getUserGithubToken($user);
 
+                    // Get all repositories first (for total count)
+                    // Note: This might be expensive for users with many repositories
+                    $allRepos = $this->client->api('current_user')->repositories();
+                    $total = count($allRepos);
 
-                // Get all repositories first (for total count)
-                // Note: This might be expensive for users with many repositories
-                $allRepos = $this->client->api('current_user')->repositories();
-                $total = count($allRepos);
+                    // Apply sorting to all repositories
+                    if ($sort === 'updated') {
+                        usort($allRepos, function ($a, $b) use ($direction) {
+                            $result = strtotime($a['updated_at']) <=> strtotime($b['updated_at']);
+                            return $direction === 'desc' ? -$result : $result;
+                        });
+                    } elseif ($sort === 'created') {
+                        usort($allRepos, function ($a, $b) use ($direction) {
+                            $result = strtotime($a['created_at']) <=> strtotime($b['created_at']);
+                            return $direction === 'desc' ? -$result : $result;
+                        });
+                    } elseif ($sort === 'pushed') {
+                        usort($allRepos, function ($a, $b) use ($direction) {
+                            $result = strtotime($a['pushed_at']) <=> strtotime($b['pushed_at']);
+                            return $direction === 'desc' ? -$result : $result;
+                        });
+                    } elseif ($sort === 'full_name') {
+                        usort($allRepos, function ($a, $b) use ($direction) {
+                            $result = strcasecmp($a['full_name'], $b['full_name']);
+                            return $direction === 'desc' ? -$result : $result;
+                        });
+                    }
 
-                // Apply sorting to all repositories
-                if ($sort === 'updated') {
-                    usort($allRepos, function ($a, $b) use ($direction) {
-                        $result = strtotime($a['updated_at']) <=> strtotime($b['updated_at']);
-                        return $direction === 'desc' ? -$result : $result;
-                    });
-                } elseif ($sort === 'created') {
-                    usort($allRepos, function ($a, $b) use ($direction) {
-                        $result = strtotime($a['created_at']) <=> strtotime($b['created_at']);
-                        return $direction === 'desc' ? -$result : $result;
-                    });
-                } elseif ($sort === 'pushed') {
-                    usort($allRepos, function ($a, $b) use ($direction) {
-                        $result = strtotime($a['pushed_at']) <=> strtotime($b['pushed_at']);
-                        return $direction === 'desc' ? -$result : $result;
-                    });
-                } elseif ($sort === 'full_name') {
-                    usort($allRepos, function ($a, $b) use ($direction) {
-                        $result = strcasecmp($a['full_name'], $b['full_name']);
-                        return $direction === 'desc' ? -$result : $result;
-                    });
+                    // Apply pagination
+                    $offset = ($page - 1) * $perPage;
+                    $repositories = array_slice($allRepos, $offset, $perPage);
+
+                    // Calculate last page
+                    $lastPage = ceil($total / $perPage);
+
+                    // Format repositories as DTOs
+                    $repositoriesData = array_map(function ($repo) {
+                        return $repo instanceof RepositoryDto
+                            ? $repo
+                            : RepositoryDto::fromArray($repo);
+                    }, $repositories);
+
+                    // Return array with pagination metadata instead of DTO
+                    return [
+                        'data' => $repositoriesData,
+                        'currentPage' => $page,
+                        'perPage' => $perPage,
+                        'total' => $total,
+                        'lastPage' => $lastPage
+                    ];
                 }
-
-                // Apply pagination
-                $offset = ($page - 1) * $perPage;
-                $repositories = array_slice($allRepos, $offset, $perPage);
-
-                // Calculate last page
-                $lastPage = ceil($total / $perPage);
-
-                // Format repositories as DTOs
-                $repositoriesData = array_map(function ($repo) {
-                    return $repo instanceof RepositoryDto
-                        ? $repo
-                        : RepositoryDto::fromArray($repo);
-                }, $repositories);
-
-                // Return array with pagination metadata instead of DTO
-                return [
-                    'data' => $repositoriesData,
-                    'currentPage' => $page,
-                    'perPage' => $perPage,
-                    'total' => $total,
-                    'lastPage' => $lastPage
-                ];
-            });
+            );
+        } catch (\Illuminate\Auth\AuthenticationException $e) {
+            // Rethrow authentication exceptions
+            throw $e;
         } catch (Exception $e) {
             throw new Exception('Failed to retrieve repositories: ' . $e->getMessage());
         }
@@ -116,8 +155,14 @@ class RepositoryService
     public function getRepository(string $owner, string $repo): RepositoryDto
     {
         try {
+            // Verify user is authenticated
+            $this->getAuthenticatedUser();
+
             $repository = $this->client->api('repo')->show($owner, $repo);
             return RepositoryDto::fromArray($repository);
+        } catch (\Illuminate\Auth\AuthenticationException $e) {
+            // Rethrow authentication exceptions
+            throw $e;
         } catch (Exception $e) {
             if (strpos($e->getMessage(), '404') !== false) {
                 throw new Exception('Repository not found or you do not have permission to access it');
@@ -139,6 +184,10 @@ class RepositoryService
     public function getFileContent(string $owner, string $repo, string $path, ?string $ref = null): string
     {
         try {
+            // Get authenticated user
+            $user = $this->getAuthenticatedUser();
+            $githubToken = $this->getUserGithubToken($user);
+
             // If no branch is specified, get the default branch (usually main)
             if ($ref === null) {
                 $repository = $this->client->api('repo')->show($owner, $repo);
@@ -148,6 +197,9 @@ class RepositoryService
             $fileContent = $this->client->api('repo')->contents()->download($owner, $repo, $path, $ref);
 
             return $fileContent;
+        } catch (\Illuminate\Auth\AuthenticationException $e) {
+            // Rethrow authentication exceptions
+            throw $e;
         } catch (Exception $e) {
             throw new Exception('Failed to retrieve file content: ' . $e->getMessage());
         }
@@ -166,6 +218,10 @@ class RepositoryService
     public function getFolderContent(string $owner, string $repo, string $path = '', ?string $ref = null): array
     {
         try {
+            // Get authenticated user
+            $user = $this->getAuthenticatedUser();
+            $githubToken = $this->getUserGithubToken($user);
+
             // If no branch is specified, get the default branch (usually main)
             if ($ref === null) {
                 $repository = $this->client->api('repo')->show($owner, $repo);
@@ -188,6 +244,9 @@ class RepositoryService
                     'branch' => $ref // Include the branch information in the response
                 ];
             }, $contents);
+        } catch (\Illuminate\Auth\AuthenticationException $e) {
+            // Rethrow authentication exceptions
+            throw $e;
         } catch (Exception $e) {
             throw new Exception('Failed to retrieve folder content: ' . $e->getMessage());
         }
@@ -197,15 +256,15 @@ class RepositoryService
      * Clear the repository cache for the current user
      * 
      * @return void
+     * @throws \Illuminate\Auth\AuthenticationException
      */
     public function clearCache(): void
     {
-        $user = Auth::user();
-        if ($user instanceof Users) {
-            $cachePattern = "user_{$user->id}_repositories_*";
-            foreach (Cache::get($cachePattern, []) as $key => $value) {
-                Cache::forget($key);
-            }
+        $user = $this->getAuthenticatedUser();
+
+        $cachePattern = "user_{$user->id}_repositories_*";
+        foreach (Cache::get($cachePattern, []) as $key => $value) {
+            Cache::forget($key);
         }
     }
 }

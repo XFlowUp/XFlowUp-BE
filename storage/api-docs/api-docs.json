@@ -15,7 +15,7 @@
         }
     ],
     "paths": {
-        "/api/auth/github": {
+        "/auth/github": {
             "get": {
                 "tags": [
                     "Authentication"
@@ -30,7 +30,7 @@
                 }
             }
         },
-        "/api/auth/github/callback": {
+        "/auth/github/callback": {
             "get": {
                 "tags": [
                     "Authentication"
@@ -62,41 +62,6 @@
                         "description": "Authentication failed"
                     }
                 }
-            }
-        },
-        "/api/auth/me": {
-            "get": {
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Get authenticated user info",
-                "description": "Returns information about the currently authenticated user",
-                "operationId": "getUserInfo",
-                "responses": {
-                    "200": {
-                        "description": "Successful operation",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "user": {
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Not authenticated"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
             }
         },
         "/api/auth/logout": {
@@ -650,6 +615,67 @@
                     }
                 ]
             }
+        },
+        "/api/user/info": {
+            "get": {
+                "tags": [
+                    "User"
+                ],
+                "summary": "Get user information",
+                "operationId": "96c54b33250bec4d7490a56033bcd389",
+                "parameters": [
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "Bearer {token}"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User information retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User not found"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -725,11 +751,73 @@
                     }
                 },
                 "type": "object"
+            },
+            "User": {
+                "title": "User",
+                "description": "User model",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "John Doe"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "john@example.com"
+                    },
+                    "github_id": {
+                        "type": "string",
+                        "example": "12345"
+                    },
+                    "avatar": {
+                        "type": "string",
+                        "example": "https://avatars.githubusercontent.com/u/12345"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-01-01T00:00:00Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-01-01T00:00:00Z"
+                    },
+                    "github_token": {
+                        "properties": {
+                            "user_id": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "created_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2023-01-01T00:00:00Z"
+                            },
+                            "updated_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2023-01-01T00:00:00Z"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
             "bearerAuth": {
                 "type": "http",
+                "scheme": "bearer"
+            },
+            "Bearer": {
+                "type": "http",
+                "bearerFormat": "JWT",
                 "scheme": "bearer"
             }
         }
@@ -742,6 +830,10 @@
         {
             "name": "Repositories",
             "description": "Repositories"
+        },
+        {
+            "name": "User",
+            "description": "User"
         }
     ]
 }

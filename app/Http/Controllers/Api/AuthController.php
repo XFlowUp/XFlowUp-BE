@@ -28,7 +28,7 @@ class AuthController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/api/auth/github",
+     *     path="/auth/github",
      *     operationId="redirectToGithub",
      *     tags={"Authentication"},
      *     summary="Redirect to GitHub for OAuth",
@@ -59,7 +59,7 @@ class AuthController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/api/auth/github/callback",
+     *     path="/auth/github/callback",
      *     operationId="handleGithubCallback",
      *     tags={"Authentication"},
      *     summary="Handle GitHub OAuth callback",
@@ -95,37 +95,7 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * @OA\Get(
-     *     path="/api/auth/me",
-     *     operationId="getUserInfo",
-     *     tags={"Authentication"},
-     *     summary="Get authenticated user info",
-     *     description="Returns information about the currently authenticated user",
-     *     security={{"bearerAuth":{}}},
-     *     @OA\Response(
-     *         response=200,
-     *         description="Successful operation",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="user", type="object")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=401,
-     *         description="Not authenticated"
-     *     )
-     * )
-     */
-    public function me(): JsonResponse
-    {
-        if (!Auth::check()) {
-            return response()->json(['error' => 'Not authenticated'], 401);
-        }
 
-        return response()->json([
-            'user' => Auth::user()
-        ]);
-    }
 
     /**
      * @OA\Post(

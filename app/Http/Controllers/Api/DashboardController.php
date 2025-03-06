@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\DataTransferObjects\RepositoriesDto;
-use App\DataTransferObjects\RepositoryDto;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RepositoryRequest;
 use App\Http\Requests\RepositoryPullRequest;
@@ -11,9 +10,9 @@ use App\Services\Github\RepositoryService;
 use App\Services\Github\RepositoryActionService;
 use Illuminate\Http\JsonResponse;
 use Exception;
-use App\DataTransferObjects\Github\RepositoryCollectionDto;
 use App\DataTransferObjects\Github\RepositoryDto as GithubRepositoryDto;
 use Illuminate\Http\Request;
+use Illuminate\Auth\AuthenticationException;
 
 /**
  * @OA\Info(
@@ -125,6 +124,11 @@ class DashboardController extends Controller
                     'last_page' => $repositories['lastPage'],
                 ]
             ]);
+        } catch (AuthenticationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 401);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -178,6 +182,11 @@ class DashboardController extends Controller
                 'success' => true,
                 'data' => $repository
             ]);
+        } catch (AuthenticationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 401);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -214,6 +223,11 @@ class DashboardController extends Controller
                 'success' => true,
                 'message' => 'Repository cache cleared successfully'
             ]);
+        } catch (AuthenticationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 401);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -263,6 +277,11 @@ class DashboardController extends Controller
                 'success' => true,
                 'message' => $result
             ]);
+        } catch (AuthenticationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 401);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -369,6 +388,11 @@ class DashboardController extends Controller
                     'branch' => $usedBranch
                 ]
             ]);
+        } catch (AuthenticationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 401);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -447,8 +471,6 @@ class DashboardController extends Controller
     {
         try {
             $path = $request->input('path', '');
-
-            // Use the ref query parameter or null to use the default branch
             $ref = $request->input('ref');
 
             $folderContent = $this->repositoryService->getFolderContent($owner, $repo, $path, $ref);
@@ -468,6 +490,11 @@ class DashboardController extends Controller
                 'owner' => $owner,
                 'branch' => $usedBranch
             ]);
+        } catch (AuthenticationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 401);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
