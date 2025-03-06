@@ -16,16 +16,6 @@ class GithubToken extends Model
         "refresh_token"
     ];
 
-    public function setAccessTokenAttribute($value): void
-    {
-        $this->attributes['access_token'] = encrypt($value);
-    }
-
-    public function getAccessTokenAttribute($value): string
-    {
-        return decrypt($value);
-    }
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(Users::class, 'user_id');

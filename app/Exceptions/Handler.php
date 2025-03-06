@@ -53,15 +53,22 @@ class Handler extends ExceptionHandler
 
         // Convert authentication exceptions to JSON responses
         $this->renderable(function (AuthenticationException $e, Request $request) {
-            return $this->unauthenticated($request, $e);
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return new JsonResponse([
+                    'status' => 'failed',
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
         });
 
         // Convert unauthorized exceptions to JSON responses
         $this->renderable(function (UnauthorizedHttpException $e, Request $request) {
-            return new JsonResponse([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 401);
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return new JsonResponse([
+                    'status' => 'failed',
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
         });
     }
 
@@ -74,8 +81,9 @@ class Handler extends ExceptionHandler
      */
     protected function unauthenticated($request, AuthenticationException $exception): JsonResponse
     {
+        // Always return JSON response for all requests
         return new JsonResponse([
-            'success' => false,
+            'status' => 'failed',
             'message' => 'Unauthorized'
         ], 401);
     }

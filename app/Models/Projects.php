@@ -4,6 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Class Projects
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $repository
+ * @property string $slug
+ * @property bool $is_deleted
+ */
 class Projects extends Model
 {
     protected $table = "projects";

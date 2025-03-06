@@ -21,7 +21,20 @@ class AuthController extends Controller
 
     public function redirectToGithub(): RedirectResponse
     {
-        return Socialite::driver('github')->redirect();
+        return Socialite::driver('github')
+            ->scopes([
+                'repo',              // Full control of private repositories
+                'admin:repo_hook',   // Full control of repository webhooks
+                'write:repo_hook',   // Write repository hooks (create/edit)
+                'read:repo_hook',    // Read repository hooks
+                'admin:org_hook',    // Read and write org hooks
+                'workflow',          // Update GitHub Action workflows
+                'read:org',          // Read org and team membership, read org projects
+                'read:public_key',   // Read public keys
+                'read:user',         // Read user profile information
+                'user:email',        // Access user email addresses (read-only)
+            ])
+            ->redirect();
     }
 
     public function handleGithubCallback(): JsonResponse
@@ -55,6 +68,7 @@ class AuthController extends Controller
     public function logout(): JsonResponse
     {
         auth()->logout();
+
         return response()->json(['message' => 'Successfully logged out']);
     }
 }

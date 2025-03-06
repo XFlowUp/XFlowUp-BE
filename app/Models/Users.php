@@ -8,6 +8,14 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
+/**
+ * @property string $email The user's email address.
+ * @property string $profile_pic_url The URL of the user's profile picture.
+ * @property int $plan_id The ID of the user's subscription plan.
+ * @property string $github_id The user's GitHub ID.
+ * @method static createOrUpdate(array $attributes, array $values = []) Create or update a user.
+ * @return Users
+ */
 class Users extends Authenticatable implements JWTSubject
 {
     use Notifiable;

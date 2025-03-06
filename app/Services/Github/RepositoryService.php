@@ -2,6 +2,8 @@
 
 namespace App\Services\Github;
 
+use App\DataTransferObjects\Github\RepositoryDto;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Github\Client as GitHubClient;
@@ -12,6 +14,10 @@ class RepositoryService
 {
     protected int $perPage = 10;
 
+    public function __construct(
+        protected GitHubClient $client
+    ) {}
+
     /**
      * Get repositories for the authenticated user with pagination and sorting
      *
@@ -19,7 +25,7 @@ class RepositoryService
      * @param int|null $perPage Items per page
      * @param string $sort Field to sort by (created, updated, pushed, full_name)
      * @param string $direction Sort direction (asc or desc)
-     * @return array<string, mixed>
+     * @return array Repository collection with pagination metadata
      * @throws Exception
      */
     public function getRepositories(
@@ -40,18 +46,11 @@ class RepositoryService
             $cacheKey = "user_{$user->id}_repositories_page_{$page}_perpage_{$perPage}_sort_{$sort}_dir_{$direction}";
 
             return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($user, $page, $perPage, $sort, $direction) {
-                $githubToken = $user->githubToken()->first();
 
-                if (!$githubToken) {
-                    throw new Exception('GitHub token not found for user');
-                }
-
-                $client = new GitHubClient();
-                $client->authenticate($githubToken->access_token, null, GitHubClient::AUTH_ACCESS_TOKEN);
 
                 // Get all repositories first (for total count)
                 // Note: This might be expensive for users with many repositories
-                $allRepos = $client->api('current_user')->repositories();
+                $allRepos = $this->client->api('current_user')->repositories();
                 $total = count($allRepos);
 
                 // Apply sorting to all repositories
@@ -84,13 +83,20 @@ class RepositoryService
                 // Calculate last page
                 $lastPage = ceil($total / $perPage);
 
-                // Format response to match what DashboardController expects
+                // Format repositories as DTOs
+                $repositoriesData = array_map(function ($repo) {
+                    return $repo instanceof RepositoryDto
+                        ? $repo
+                        : RepositoryDto::fromArray($repo);
+                }, $repositories);
+
+                // Return array with pagination metadata instead of DTO
                 return [
-                    'data' => $repositories,
-                    'current_page' => $page,
-                    'per_page' => $perPage,
+                    'data' => $repositoriesData,
+                    'currentPage' => $page,
+                    'perPage' => $perPage,
                     'total' => $total,
-                    'last_page' => $lastPage
+                    'lastPage' => $lastPage
                 ];
             });
         } catch (Exception $e) {
@@ -100,42 +106,60 @@ class RepositoryService
 
     /**
      * Get a specific repository by owner and repo name
+     * (Supports both public and private repositories the authenticated user has access to)
      *
      * @param string $owner Repository owner/organization name
      * @param string $repo Repository name
-     * @return array<string, mixed>
+     * @return RepositoryDto
      * @throws Exception
      */
-    public function getRepository(string $owner, string $repo): array
+    public function getRepository(string $owner, string $repo): RepositoryDto
     {
         try {
-            // Check if user is logged in
-            $user = Auth::user();
-
-            if (!$user instanceof Users) {
-                throw new Exception('User not authenticated');
-            }
-
-            $githubToken = $user->githubToken()->first();
-
-            if (!$githubToken) {
-                throw new Exception('GitHub token not found for user');
-            }
-
-            // Create a new GitHub client instance
-            $client = new GitHubClient();
-            // Authenticate with the token
-            $client->authenticate($githubToken->access_token, null, GitHubClient::AUTH_ACCESS_TOKEN);
-
-            // Get repository using the client
-            $repository = $client->api('repo')->show($owner, $repo);
-
-            // Format response to match what controller expects
-            return [
-                'data' => $repository
-            ];
+            $repository = $this->client->api('repo')->show($owner, $repo);
+            return RepositoryDto::fromArray($repository);
         } catch (Exception $e) {
+            if (strpos($e->getMessage(), '404') !== false) {
+                throw new Exception('Repository not found or you do not have permission to access it');
+            }
             throw new Exception('Failed to retrieve repository: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get file content from a repository by file path
+     *
+     * @param string $owner Repository owner/organization name
+     * @param string $repo Repository name
+     * @param string $path Path to the file
+     * @param string|null $ref Reference (branch, tag or commit SHA)
+     * @return string File content
+     * @throws Exception
+     */
+    public function getFileContent(string $owner, string $repo, string $path, ?string $ref = null): string
+    {
+        try {
+            $fileContent = $this->client->api('repo')->contents()->download($owner, $repo, $path, $ref);
+
+            return $fileContent;
+        } catch (Exception $e) {
+            throw new Exception('Failed to retrieve file content: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Clear the repository cache for the current user
+     * 
+     * @return void
+     */
+    public function clearCache(): void
+    {
+        $user = Auth::user();
+        if ($user instanceof Users) {
+            $cachePattern = "user_{$user->id}_repositories_*";
+            foreach (Cache::get($cachePattern, []) as $key => $value) {
+                Cache::forget($key);
+            }
         }
     }
 }
