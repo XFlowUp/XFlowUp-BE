@@ -10,6 +10,13 @@ use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
 use Exception;
 
+
+/**
+ * @OA\Tag(
+ *     name="Authentication",
+ *     description="API endpoints for user authentication"
+ * )
+ */
 class AuthController extends Controller
 {
     private AuthService $authService;
@@ -19,6 +26,19 @@ class AuthController extends Controller
         $this->authService = $authService;
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/auth/github",
+     *     operationId="redirectToGithub",
+     *     tags={"Authentication"},
+     *     summary="Redirect to GitHub for OAuth",
+     *     description="Redirects the user to GitHub OAuth authorization page",
+     *     @OA\Response(
+     *         response=302,
+     *         description="Redirect to GitHub"
+     *     )
+     * )
+     */
     public function redirectToGithub(): RedirectResponse
     {
         return Socialite::driver('github')
@@ -37,6 +57,27 @@ class AuthController extends Controller
             ->redirect();
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/auth/github/callback",
+     *     operationId="handleGithubCallback",
+     *     tags={"Authentication"},
+     *     summary="Handle GitHub OAuth callback",
+     *     description="Process the GitHub OAuth callback and authenticate user",
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successfully authenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="User saved successfully"),
+     *             @OA\Property(property="user", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Authentication failed"
+     *     )
+     * )
+     */
     public function handleGithubCallback(): JsonResponse
     {
         try {
@@ -54,6 +95,27 @@ class AuthController extends Controller
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/auth/me",
+     *     operationId="getUserInfo",
+     *     tags={"Authentication"},
+     *     summary="Get authenticated user info",
+     *     description="Returns information about the currently authenticated user",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successful operation",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="user", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Not authenticated"
+     *     )
+     * )
+     */
     public function me(): JsonResponse
     {
         if (!Auth::check()) {
@@ -65,6 +127,27 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * @OA\Post(
+     *     path="/api/auth/logout",
+     *     operationId="logout",
+     *     tags={"Authentication"},
+     *     summary="Logout user",
+     *     description="Logs out the currently authenticated user",
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Successfully logged out",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Successfully logged out")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Not authenticated"
+     *     )
+     * )
+     */
     public function logout(): JsonResponse
     {
         auth()->logout();

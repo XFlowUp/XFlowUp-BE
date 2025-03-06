@@ -139,11 +139,57 @@ class RepositoryService
     public function getFileContent(string $owner, string $repo, string $path, ?string $ref = null): string
     {
         try {
+            // If no branch is specified, get the default branch (usually main)
+            if ($ref === null) {
+                $repository = $this->client->api('repo')->show($owner, $repo);
+                $ref = $repository['default_branch'] ?? 'main';
+            }
+
             $fileContent = $this->client->api('repo')->contents()->download($owner, $repo, $path, $ref);
 
             return $fileContent;
         } catch (Exception $e) {
             throw new Exception('Failed to retrieve file content: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get tree/folder structure from a repository
+     *
+     * @param string $owner Repository owner/organization name
+     * @param string $repo Repository name
+     * @param string $path Path to the directory within the repository
+     * @param string|null $ref Reference (branch, tag or commit SHA)
+     * @return array Files and directories within the specified path
+     * @throws Exception
+     */
+    public function getFolderContent(string $owner, string $repo, string $path = '', ?string $ref = null): array
+    {
+        try {
+            // If no branch is specified, get the default branch (usually main)
+            if ($ref === null) {
+                $repository = $this->client->api('repo')->show($owner, $repo);
+                $ref = $repository['default_branch'] ?? 'main';
+            }
+
+            $path = trim($path, '/');
+
+            $contents = $this->client->api('repo')->contents()->show($owner, $repo, $path, $ref);
+
+            return array_map(function ($item) use ($ref) {
+                return [
+                    'name' => $item['name'],
+                    'path' => $item['path'],
+                    'size' => $item['size'] ?? 0,
+                    'type' => $item['type'], // 'file' or 'dir'
+                    'sha' => $item['sha'],
+                    'url' => $item['html_url'],
+                    'download_url' => $item['download_url'] ?? null,
+                    'branch' => $ref // Include the branch information in the response
+                ];
+            }, $contents);
+        } catch (Exception $e) {
+            throw new Exception('Failed to retrieve folder content: ' . $e->getMessage());
         }
     }
 

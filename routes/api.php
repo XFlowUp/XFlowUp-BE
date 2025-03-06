@@ -18,4 +18,6 @@ Route::middleware(['auth:api'])->prefix('dashboard')->group(function () {
     Route::post('/pull-repository-code', [DashboardController::class, 'pullRepositoryCode'])->name('dashboard.pullRepositoryCode');
     Route::get('/repository/{owner}/{repo}/file', [DashboardController::class, 'getRepositoryFile'])
         ->name('dashboard.repository.file');
+    Route::get('/repository/{owner}/{repo}/folder', [DashboardController::class, 'getRepositoryFolder'])
+        ->name('dashboard.repository.folder');
 });
