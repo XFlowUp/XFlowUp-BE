@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\AuthController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\User\InfoController;
+use App\Http\Controllers\Api\Projects\ProjectManagerController;
+
 // Public routes - No auth needed
 Route::get('/unauthorized', function () {
     return response()->json(['status' => 'failed', 'message' => 'Unauthorized'], 401);
@@ -25,4 +27,8 @@ Route::group(["prefix" => "api"], function () {
     Route::group(['prefix' => 'user'], function () {
         Route::get('/me', [InfoController::class, 'getUserInfo'])->name('user.info');
     })->middleware(['auth:api']);
+
+    Route::group(['prefix' => 'projects'], function () {
+        Route::get('/', [ProjectManagerController::class, 'index'])->name('projects.index');
+    });
 });
